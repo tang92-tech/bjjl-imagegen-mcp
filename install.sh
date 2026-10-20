@@ -28,11 +28,36 @@ chmod +x "$SERVER_FILE"
 python3 -c "import ast;ast.parse(open('$SERVER_FILE').read())" || { echo "❌ 下载文件语法校验失败"; exit 1; }
 echo "✅ 已安装到: $SERVER_FILE"
 
-echo ""
-echo "请输入你的网关 API Key（输入不会回显）："
-read -rsp "API Key: " API_KEY
-echo ""
-[ -n "$API_KEY" ] || { echo "❌ API Key 不能为空"; exit 1; }
+# ---- 获取 API Key（三种方式：环境变量 / --api-key 参数 / 交互输入）----
+# 注意：绝不能用 `read -rsp` 直接读 stdin——macOS 默认 shell 是 zsh，
+# zsh 里 `read -p` 表示"从协进程读"，会报 `read: -p: no coprocess`；
+# 且 `curl … | bash` 时 stdin 是脚本本身，读不到用户输入。故这里统一从 /dev/tty 读。
+API_KEY="${BJJL_IMAGE_API_KEY:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --api-key)   API_KEY="${2:-}"; shift 2 2>/dev/null || shift ;;
+    --api-key=*) API_KEY="${1#*=}"; shift ;;
+    *)           shift ;;
+  esac
+done
+
+if [ -z "$API_KEY" ]; then
+  # 只有在 /dev/tty 真正可用时才尝试交互读取，否则安静跳过（Agent 环境常见无 TTY）
+  if { : </dev/tty; } 2>/dev/null; then
+    echo "请输入你的网关 API Key（输入不会回显）："
+    printf "API Key: "
+    { stty -echo; IFS= read -r API_KEY; stty echo; } </dev/tty 2>/dev/null || true
+    echo ""
+  fi
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ 未提供 API Key。可选任一种方式重试："
+  echo "   A. 交互：在自己的「终端」里直接运行本脚本"
+  echo "   B. 非交互：BJJL_IMAGE_API_KEY=你的Key bash install.sh"
+  echo "   C. 非交互：bash install.sh --api-key 你的Key"
+  exit 1
+fi
 
 MODEL="${BJJL_IMAGE_MODEL:-gpt-6-luna}"
 GATEWAY="${BJJL_IMAGE_GATEWAY:-https://aigateway.evenbetter.tech:8443}"
