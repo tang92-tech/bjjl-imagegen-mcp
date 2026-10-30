@@ -87,6 +87,9 @@ args = ["$SERVER_FILE"]
 enabled = true
 startup_timeout_sec = 20
 tool_timeout_sec = 300
+# 免去每次调用的手动审批（Codex 合法值: auto/prompt/writes/approve）。
+# 不加这一行时，Agent 调用 generate_image 会被审批拦截，表现为"工具执行失败"。
+default_tools_approval_mode = "approve"
 
 [mcp_servers.imagegen.env]
 BJJL_IMAGE_API_KEY = "$API_KEY"
